@@ -79,9 +79,9 @@ extractor = None
 
 if api_key:
     llm = ChatGoogleGenerativeAI(
-        model="gemini-3.8-flash",
+        model="gemini-3.5-flash-lite",
         google_api_key=api_key,
-        temperature=0,
+        # temperature=0,
     )
 
     extractor = llm.with_structured_output(
