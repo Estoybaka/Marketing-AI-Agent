@@ -9,27 +9,30 @@ from lead_database import (
 )
 
 
-TEST_DB_PATH = Path(__file__).resolve().with_name("test_leads.db")
 
+def reset_database(db_path):
+    """Create an isolated test database and clear its records."""
 
-def reset_database():
-    """Create the test database and clear its records."""
+    initialize_database(db_path)
 
-    initialize_database(TEST_DB_PATH)
-
-    with sqlite3.connect(str(TEST_DB_PATH)) as connection:
+    with sqlite3.connect(str(db_path)) as connection:
         connection.execute("DELETE FROM leads")
 
 
-def test_database_initializes():
-    reset_database()
-
-    assert TEST_DB_PATH.exists()
-    assert TEST_DB_PATH.is_file()
 
 
-def test_new_lead_can_be_saved_and_retrieved():
-    reset_database()
+def test_database_initializes(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
+
+
+    assert db_path.exists()
+    assert db_path.is_file()
+
+
+def test_new_lead_can_be_saved_and_retrieved(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-1",
@@ -40,10 +43,10 @@ def test_new_lead_can_be_saved_and_retrieved():
             "urgency": "Medium",
             "source": "Website",
         },
-        TEST_DB_PATH,
+        db_path,
     )
 
-    lead = get_lead("conversation-1", TEST_DB_PATH)
+    lead = get_lead("conversation-1", db_path)
 
     assert lead is not None
     assert lead["name"] == "Ram Sharma"
@@ -60,8 +63,9 @@ def test_new_lead_can_be_saved_and_retrieved():
     assert lead["updated_at"]
 
 
-def test_missing_values_do_not_erase_saved_information():
-    reset_database()
+def test_missing_values_do_not_erase_saved_information(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-1",
@@ -70,7 +74,7 @@ def test_missing_values_do_not_erase_saved_information():
             "email": "ram@example.com",
             "need": "Care for elderly mother",
         },
-        TEST_DB_PATH,
+        db_path,
     )
 
     save_lead(
@@ -81,10 +85,10 @@ def test_missing_values_do_not_erase_saved_information():
             "phone": None,
             "need": None,
         },
-        TEST_DB_PATH,
+        db_path,
     )
 
-    lead = get_lead("conversation-1", TEST_DB_PATH)
+    lead = get_lead("conversation-1", db_path)
 
     assert lead["name"] == "Ram Sharma"
     assert lead["email"] == "ram@example.com"
@@ -92,8 +96,9 @@ def test_missing_values_do_not_erase_saved_information():
     assert lead["lead_complete"] is True
 
 
-def test_existing_email_can_be_corrected():
-    reset_database()
+def test_existing_email_can_be_corrected(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-1",
@@ -102,24 +107,25 @@ def test_existing_email_can_be_corrected():
             "email": "old@example.com",
             "need": "Care for elderly mother",
         },
-        TEST_DB_PATH,
+        db_path,
     )
 
     save_lead(
         "conversation-1",
         {"email": "ram@example.com"},
-        TEST_DB_PATH,
+        db_path,
     )
 
-    lead = get_lead("conversation-1", TEST_DB_PATH)
+    lead = get_lead("conversation-1", db_path)
 
     assert lead["email"] == "ram@example.com"
     assert lead["name"] == "Ram Sharma"
     assert lead["need"] == "Care for elderly mother"
 
 
-def test_phone_can_satisfy_contact_requirement():
-    reset_database()
+def test_phone_can_satisfy_contact_requirement(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-phone-only",
@@ -128,10 +134,10 @@ def test_phone_can_satisfy_contact_requirement():
             "phone": "+977 9800000000",
             "need": "Care for elderly father",
         },
-        TEST_DB_PATH,
+        db_path,
     )
 
-    lead = get_lead("conversation-phone-only", TEST_DB_PATH)
+    lead = get_lead("conversation-phone-only", db_path)
 
     assert lead is not None
     assert lead["email"] is None
@@ -140,8 +146,9 @@ def test_phone_can_satisfy_contact_requirement():
     assert lead["next_field"] is None
 
 
-def test_missing_contact_keeps_lead_incomplete():
-    reset_database()
+def test_missing_contact_keeps_lead_incomplete(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-no-contact",
@@ -149,58 +156,61 @@ def test_missing_contact_keeps_lead_incomplete():
             "name": "Ram Sharma",
             "need": "Care for elderly mother",
         },
-        TEST_DB_PATH,
+        db_path,
     )
 
-    lead = get_lead("conversation-no-contact", TEST_DB_PATH)
+    lead = get_lead("conversation-no-contact", db_path)
 
     assert lead is not None
     assert lead["lead_complete"] is False
     assert lead["next_field"] == "email_or_phone"
 
 
-def test_conversations_have_separate_leads():
-    reset_database()
+def test_conversations_have_separate_leads(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-1",
         {"name": "Ram Sharma", "email": "ram@example.com"},
-        TEST_DB_PATH,
+        db_path,
     )
     save_lead(
         "conversation-2",
         {"name": "Anita Sharma", "email": "anita@example.com"},
-        TEST_DB_PATH,
+        db_path,
     )
 
-    first = get_lead("conversation-1", TEST_DB_PATH)
-    second = get_lead("conversation-2", TEST_DB_PATH)
+    first = get_lead("conversation-1", db_path)
+    second = get_lead("conversation-2", db_path)
 
     assert first["name"] == "Ram Sharma"
     assert second["name"] == "Anita Sharma"
     assert first["lead_id"] != second["lead_id"]
 
 
-def test_lead_can_be_found_in_list():
-    reset_database()
+def test_lead_can_be_found_in_list(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
     save_lead(
         "conversation-1",
         {"name": "Ram Sharma", "email": "ram@example.com"},
-        TEST_DB_PATH,
+        db_path,
     )
 
-    leads = list_leads(TEST_DB_PATH)
+    leads = list_leads(db_path)
 
     assert len(leads) == 1
     assert leads[0]["thread_id"] == "conversation-1"
     assert leads[0]["email"] == "ram@example.com"
 
 
-def test_unknown_conversation_returns_none():
-    reset_database()
+def test_unknown_conversation_returns_none(tmp_path):
+    db_path = tmp_path / "test_leads.db"
+    reset_database(db_path)
 
-    assert get_lead("unknown-conversation", TEST_DB_PATH) is None
+    assert get_lead("unknown-conversation", db_path) is None
 
 
 if __name__ == "__main__":
