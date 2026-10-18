@@ -1,106 +1,43 @@
 # Day 4 Test Results
 
-## Test 1 — General Inquiry
+## Automated Test Run
 
-### Input
+- Python version: 3.11.7
+- Test runner: pytest 8.4.2
+- Environment: .venv-integration-check
+- Test command: `python -m pytest .\Week-1\Day-4\tests -v`
+- Result: **29 passed**
+- Dependency check: `python -m pip check` reported no broken requirements.
 
-I would like to know more about your services.
+## Scenario Coverage
 
-### Expected
+### 1. General Inquiry
+- Test: `test_general_inquiry_does_not_invent_service`
+- Result: PASS
 
-- No specific service should be invented.
-- Need should remain unknown.
-- Status should be `new`.
+### 2. Specific Service
+- Test: `test_specific_service_is_extracted`
+- Result: PASS
 
-### Actual
+### 3. Potential Urgent Request
+- Tests: `test_potential_urgent_request`, `test_urgent_message_is_marked_potential`
+- Result: PASS
 
-Document the actual output here.
+### 4. Pricing
+- Tests: `test_pricing_request_does_not_invent_price`, `test_pricing_question_does_not_invent_price`
+- Result: PASS
 
-### Result
+### 5. Consultation
+- Tests: `test_consultation_request`, `test_consultation_request_is_not_booking`
+- Result: PASS
 
-PASS / FAIL
+## Additional Coverage
 
----
+The successful test run also covered lead validation, channel/source preservation,
+caregiver-service detection, vague requests, lifecycle transitions, normalized
+messages, graph state, and workflow behavior.
 
-## Test 2 — Specific Service
+## Evidence Limitations
 
-### Input
-
-Do you provide caregiver support for elderly parents?
-
-### Expected
-
-- `service_interest = caregiver_support`
-
-### Actual
-
-Document actual output.
-
-### Result
-
-PASS / FAIL
-
----
-
-## Test 3 — Potential Urgent Request
-
-### Input
-
-I need someone to check on my mother today. She is alone and not well.
-
-### Expected
-
-- Need preserved.
-- Potential urgency flagged.
-- No diagnosis.
-- No unsupported emergency decision.
-
-### Actual
-
-Document actual output.
-
-### Result
-
-PASS / FAIL
-
----
-
-## Test 4 — Pricing
-
-### Input
-
-How much does your monthly home care package cost?
-
-### Expected
-
-- Pricing intent detected.
-- No price invented.
-
-### Actual
-
-Document actual output.
-
-### Result
-
-PASS / FAIL
-
----
-
-## Test 5 — Consultation
-
-### Input
-
-I would like to schedule a consultation to discuss care options for my father.
-
-### Expected
-
-- `consultation_requested = true`
-- Booking must not be claimed.
-
-### Actual
-
-Document actual output.
-
-### Result
-
-PASS / FAIL
+This report records automated test results. It does not claim that the example
+messages above were manually executed and their full outputs captured.
