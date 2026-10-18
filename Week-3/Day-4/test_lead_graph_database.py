@@ -8,17 +8,12 @@ import lead_graph
 from lead_database import initialize_database, get_lead
 
 
-TEST_DB_PATH = Path(__file__).resolve().with_name(
-    "test_graph_leads.db"
-)
+def reset_test_database(db_path: Path) -> None:
+    """Initialize an isolated test database and clear its records."""
 
+    initialize_database(db_path)
 
-def reset_test_database():
-    """Initialize the test database and clear existing test records."""
-
-    initialize_database(TEST_DB_PATH)
-
-    with closing(sqlite3.connect(str(TEST_DB_PATH))) as connection:
+    with closing(sqlite3.connect(str(db_path))) as connection:
         with connection:
             connection.execute("DELETE FROM leads")
 
@@ -34,6 +29,8 @@ def fake_extract_information(message: str) -> dict:
         "email": None,
         "phone": None,
         "need": None,
+        "need_is_correction": False,
+        "need_is_vague": False,
         "urgency": None,
         "source": None,
     }
@@ -63,7 +60,17 @@ def fake_extract_information(message: str) -> dict:
 
     lowered_message = message.lower()
 
-    if "care" in lowered_message:
+    vague_phrases = (
+        "some help for my mom",
+        "some help for my mother",
+        "some help for my dad",
+        "some help for my father",
+        "book a service",
+    )
+
+    if any(phrase in lowered_message for phrase in vague_phrases):
+        result["need_is_vague"] = True
+    elif "care" in lowered_message:
         result["need"] = message.strip()
 
     if "urgency is high" in lowered_message:
@@ -85,8 +92,12 @@ def fake_extract_information(message: str) -> dict:
     return result
 
 
-def invoke_graph(thread_id: str, message: str) -> dict:
-    """Invoke the real graph using mocked extraction and test storage."""
+def invoke_graph(
+    thread_id: str,
+    message: str,
+    db_path: Path,
+) -> dict:
+    """Invoke the real graph using mocked extraction and isolated storage."""
 
     config = {
         "configurable": {
@@ -111,7 +122,7 @@ def invoke_graph(thread_id: str, message: str) -> dict:
     }
 
     with (
-        patch.object(lead_graph, "DB_PATH", TEST_DB_PATH),
+        patch.object(lead_graph, "DB_PATH", db_path),
         patch.object(
             lead_graph,
             "extract_information",
@@ -124,18 +135,17 @@ def invoke_graph(thread_id: str, message: str) -> dict:
         )
 
 
-def test_incomplete_lead_is_saved():
-    reset_test_database()
+def test_incomplete_lead_is_saved(tmp_path):
+    db_path = tmp_path / "test_graph_leads.db"
+    reset_test_database(db_path)
 
     result = invoke_graph(
         "integration-partial-1",
         "My email is ram@example.com.",
+        db_path,
     )
 
-    saved = get_lead(
-        "integration-partial-1",
-        TEST_DB_PATH,
-    )
+    saved = get_lead("integration-partial-1", db_path)
 
     assert saved is not None
     assert saved["email"] == "ram@example.com"
@@ -145,8 +155,9 @@ def test_incomplete_lead_is_saved():
     assert result["lead_complete"] is False
 
 
-def test_complete_lead_is_saved():
-    reset_test_database()
+def test_complete_lead_is_saved(tmp_path):
+    db_path = tmp_path / "test_graph_leads.db"
+    reset_test_database(db_path)
 
     result = invoke_graph(
         "integration-complete-1",
@@ -154,12 +165,10 @@ def test_complete_lead_is_saved():
             "My name is Ram Sharma. My email is ram@example.com. "
             "I need care for my elderly mother."
         ),
+        db_path,
     )
 
-    saved = get_lead(
-        "integration-complete-1",
-        TEST_DB_PATH,
-    )
+    saved = get_lead("integration-complete-1", db_path)
 
     assert saved is not None
     assert saved["name"] == "Ram Sharma"
@@ -170,8 +179,9 @@ def test_complete_lead_is_saved():
     assert saved["lead_id"]
 
 
-def test_corrected_email_is_saved():
-    reset_test_database()
+def test_corrected_email_is_saved(tmp_path):
+    db_path = tmp_path / "test_graph_leads.db"
+    reset_test_database(db_path)
 
     thread_id = "integration-correction-1"
 
@@ -181,14 +191,16 @@ def test_corrected_email_is_saved():
             "My name is Anita Sharma. My email is "
             "wrong@example.com. I need care for my father."
         ),
+        db_path,
     )
 
     result = invoke_graph(
         thread_id,
         "Correction: my email is anita@example.com.",
+        db_path,
     )
 
-    saved = get_lead(thread_id, TEST_DB_PATH)
+    saved = get_lead(thread_id, db_path)
 
     assert saved is not None
     assert saved["email"] == "anita@example.com"
@@ -197,27 +209,24 @@ def test_corrected_email_is_saved():
     assert saved["lead_complete"] is True
 
 
-def test_conversations_have_separate_saved_leads():
-    reset_test_database()
+def test_conversations_have_separate_saved_leads(tmp_path):
+    db_path = tmp_path / "test_graph_leads.db"
+    reset_test_database(db_path)
 
     invoke_graph(
         "integration-customer-1",
         "My name is Ram Sharma. My email is ram@example.com.",
+        db_path,
     )
 
     invoke_graph(
         "integration-customer-2",
         "My name is Anita Sharma. My email is anita@example.com.",
+        db_path,
     )
 
-    first = get_lead(
-        "integration-customer-1",
-        TEST_DB_PATH,
-    )
-    second = get_lead(
-        "integration-customer-2",
-        TEST_DB_PATH,
-    )
+    first = get_lead("integration-customer-1", db_path)
+    second = get_lead("integration-customer-2", db_path)
 
     assert first is not None
     assert second is not None
@@ -228,18 +237,103 @@ def test_conversations_have_separate_saved_leads():
     assert first["lead_id"] != second["lead_id"]
 
 
-if __name__ == "__main__":
-    tests = [
-        test_incomplete_lead_is_saved,
-        test_complete_lead_is_saved,
-        test_corrected_email_is_saved,
-        test_conversations_have_separate_saved_leads,
-    ]
+def test_vague_request_asks_for_clarification_without_guessing_need(
+    tmp_path,
+):
+    db_path = tmp_path / "test_graph_leads.db"
+    reset_test_database(db_path)
 
-    print("\nRunning LangGraph + SQLite integration tests...\n")
+    thread_id = "vague-request-mom-1"
 
-    for test in tests:
-        test()
-        print(f"PASS: {test.__name__}")
+    result = invoke_graph(
+        thread_id,
+        "I need some help for my mom.",
+        db_path,
+    )
 
-    print("\nAll LangGraph + SQLite integration tests passed!")
+    saved = get_lead(thread_id, db_path)
+
+    assert saved is not None
+    assert saved["need"] is None
+    assert result["response"]
+    assert "what kind of care or help do you need" in (
+        result["response"].lower()
+    )
+    assert "personal care" in result["response"].lower()
+    assert "your mom need" not in result["response"].lower()
+
+
+def test_generic_booking_request_does_not_assume_family_member(
+    tmp_path,
+):
+    db_path = tmp_path / "test_graph_leads.db"
+    reset_test_database(db_path)
+
+    thread_id = "vague-booking-request-1"
+
+    result = invoke_graph(
+        thread_id,
+        "I want to book a service.",
+        db_path,
+    )
+
+    saved = get_lead(thread_id, db_path)
+
+    assert saved is not None
+    assert saved["need"] is None
+    assert result["response"]
+    assert "what kind of care or help do you need" in (
+        result["response"].lower()
+    )
+    assert "mom" not in result["response"].lower()
+    assert "father" not in result["response"].lower()
+
+
+def test_update_lead_preserves_additional_care_needs():
+    lead = {
+        "name": "Ram Sharma",
+        "email": "ram@example.com",
+        "phone": None,
+        "need": "Care for elderly mother",
+        "urgency": None,
+        "source": None,
+    }
+
+    lead_graph.update_lead(
+        lead,
+        {"need": "Help with medication reminders"},
+    )
+
+    assert "Care for elderly mother" in lead["need"]
+    assert "Help with medication reminders" in lead["need"]
+
+    updated_need = lead["need"]
+
+    lead_graph.update_lead(
+        lead,
+        {"need": "Help with medication reminders"},
+    )
+
+    assert lead["need"] == updated_need
+
+
+def test_update_lead_replaces_care_need_when_explicitly_corrected():
+    lead = {
+        "name": "Ram Sharma",
+        "email": "ram@example.com",
+        "phone": None,
+        "need": "Overnight care for elderly mother",
+        "urgency": None,
+        "source": None,
+    }
+
+    lead_graph.update_lead(
+        lead,
+        {
+            "need": "Daytime care for elderly mother",
+            "need_is_correction": True,
+        },
+    )
+
+    assert lead["need"] == "Daytime care for elderly mother"
+    assert "Overnight care" not in lead["need"]
