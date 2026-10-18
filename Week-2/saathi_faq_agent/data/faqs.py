@@ -1,7 +1,22 @@
+
+FALLBACK = (
+    "I'm sorry, I couldn't find an exact answer to that question "
+    "in our FAQs. Please contact the Saathi Sneha Care team "
+    "for further assistance."
+)
+
 FAQS = [
     {
         "id": "FAQ1",
         "question": "Can I pay from abroad?",
+        "keywords": [
+            "abroad",
+            "international credit card",
+            "international debit card",
+            "stripe",
+            "pay internationally",
+            "payment in usd",
+        ],
         "answer": (
             "Yes. You can pay using international credit or debit cards "
             "through Stripe. Our prices are listed in USD, and your card "
@@ -12,6 +27,14 @@ FAQS = [
     {
         "id": "FAQ2",
         "question": "Can my parents pay locally?",
+        "keywords": [
+            "local payment",
+            "pay locally",
+            "khalti",
+            "cash payment",
+            "patient portal",
+            "monthly payment",
+        ],
         "answer": (
             "Yes. We accept Khalti and cash for local payments. "
             "Families in Nepal can also pay monthly through the "
@@ -21,6 +44,14 @@ FAQS = [
     {
         "id": "FAQ3",
         "question": "Is there a setup or joining fee?",
+        "keywords": [
+            "setup fee",
+            "joining fee",
+            "hidden fees",
+            "extra fees",
+            "additional charges",
+            "add-on services",
+        ],
         "answer": (
             "No, there are no hidden setup or joining fees. "
             "Your monthly plan price covers the included services. "
@@ -31,6 +62,14 @@ FAQS = [
     {
         "id": "FAQ4",
         "question": "Can I change or cancel the plan?",
+        "keywords": [
+            "change my plan",
+            "cancel my plan",
+            "upgrade",
+            "downgrade",
+            "cancellation penalties",
+            "cancel subscription",
+        ],
         "answer": (
             "Yes. You can upgrade, downgrade, or cancel your plan "
             "at any time. Changes take effect from the next billing "
@@ -40,6 +79,14 @@ FAQS = [
     {
         "id": "FAQ5",
         "question": "What if my parents need more visits?",
+        "keywords": [
+            "more visits",
+            "extra visits",
+            "additional visits",
+            "book extra visits",
+            "additional care visits",
+            "care coordinator",
+        ],
         "answer": (
             "Additional visits outside your plan can be booked "
             "individually. Your care coordinator can advise you "
@@ -49,6 +96,15 @@ FAQS = [
     {
         "id": "FAQ6",
         "question": "Do you serve outside Kathmandu?",
+        "keywords": [
+            "outside kathmandu",
+            "service area",
+            "pokhara",
+            "biratnagar",
+            "available in pokhara",
+            "available in biratnagar",
+            "service availability",
+        ],
         "answer": (
             "Our full service is currently available in Kathmandu "
             "Valley. We are expanding to Pokhara and Biratnagar. "
@@ -57,7 +113,6 @@ FAQS = [
     },
 ]
 
-
 FAQ_BY_ID = {
     faq["id"]: faq
     for faq in FAQS
@@ -65,7 +120,8 @@ FAQ_BY_ID = {
 
 
 FAQ_CONTEXT = "\n".join(
-    f'{faq["id"]}: {faq["question"]}'
+    f'{faq["id"]}: {faq["question"]}\n'
+    f'Keywords: {", ".join(faq["keywords"])}'
     for faq in FAQS
 )
 
