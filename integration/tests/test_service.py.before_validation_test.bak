@@ -1,0 +1,95 @@
+﻿from integration.service import handle_message
+import integration.service as service
+
+
+def fake_extract_information(message):
+    lowered = message.casefold()
+    return {
+        "name": "Ram Sharma" if "ram sharma" in lowered else None,
+        "email": "ram@example.com" if "ram@example.com" in lowered else None,
+        "phone": None,
+        "need": (
+            "Care for elderly mother"
+            if "care for" in lowered and "mother" in lowered
+            else None
+        ),
+        "urgency": None,
+        "source": None,
+    }
+
+
+def test_faq_message_uses_existing_faq_agent():
+    result = handle_message(
+        "Can I pay from abroad?",
+        thread_id="faq-only-test",
+    )
+
+    assert result["route"] == "faq"
+    assert result["faq"]["faq_id"] == "FAQ1"
+    assert result["faq"]["answer"].strip()
+    assert result["lead"] is None
+
+
+def test_lead_message_uses_graph_and_temporary_database(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        service.lead_graph,
+        "extract_information",
+        fake_extract_information,
+    )
+
+    database_path = tmp_path / "integration_leads.db"
+
+    result = handle_message(
+        "My name is Ram Sharma. My email is ram@example.com. "
+        "I need care for my elderly mother.",
+        thread_id="lead-integration-test",
+        db_path=database_path,
+    )
+
+    assert result["route"] == "lead"
+    assert result["faq"] is None
+    assert result["lead"]["name"] == "Ram Sharma"
+    assert result["lead"]["email"] == "ram@example.com"
+    assert result["lead"]["lead_complete"] is True
+    assert database_path.exists()
+
+
+def test_mixed_message_calls_faq_and_lead_agents(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        service.lead_graph,
+        "extract_information",
+        fake_extract_information,
+    )
+
+    result = handle_message(
+        "Can I pay from abroad? My name is Ram Sharma. "
+        "My email is ram@example.com. "
+        "I need care for my elderly mother.",
+        thread_id="mixed-integration-test",
+        db_path=tmp_path / "mixed_leads.db",
+    )
+
+    assert result["route"] == "both"
+    assert result["faq"]["faq_id"] == "FAQ1"
+    assert result["lead"]["name"] == "Ram Sharma"
+    assert result["lead"]["lead_complete"] is True
+
+
+def test_empty_message_is_rejected():
+    import pytest
+
+    with pytest.raises(ValueError, match="Message must not be empty"):
+        handle_message("", thread_id="empty-test")
+
+
+def test_missing_thread_id_is_rejected():
+    import pytest
+
+    with pytest.raises(ValueError, match="thread_id"):
+        handle_message("My name is Ram Sharma.", thread_id=" ")
