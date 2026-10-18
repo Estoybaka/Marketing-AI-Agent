@@ -1,0 +1,63 @@
+﻿"""Route customer messages to the existing FAQ and lead agents."""
+
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+FAQ_AGENT_DIR = REPOSITORY_ROOT / "Week-2" / "saathi_faq_agent"
+PURE_PYTHON_DIR = FAQ_AGENT_DIR / "pure_python"
+LEAD_AGENT_DIR = REPOSITORY_ROOT / "Week-3" / "Day-4"
+
+for directory in (FAQ_AGENT_DIR, PURE_PYTHON_DIR, LEAD_AGENT_DIR):
+    directory_string = str(directory)
+    if directory_string not in sys.path:
+        sys.path.insert(0, directory_string)
+
+from faq_agent import answer_question
+import lead_graph
+
+from integration.router import classify_message
+
+
+def handle_message(
+    message: str,
+    thread_id: str,
+    db_path: str | Path | None = None,
+) -> dict:
+    """Route a message and return the results from the relevant agent."""
+    if not isinstance(message, str) or not message.strip():
+        raise ValueError("Message must not be empty.")
+
+    if not isinstance(thread_id, str) or not thread_id.strip():
+        raise ValueError("A non-empty thread_id is required.")
+
+    route = classify_message(message)
+    result = {
+        "route": route,
+        "faq": None,
+        "lead": None,
+    }
+
+    if route in ("faq", "both"):
+        result["faq"] = answer_question(message)
+
+    if route in ("lead", "both"):
+        graph_input = {"user_message": message}
+        graph_config = {"configurable": {"thread_id": thread_id}}
+
+        if db_path is None:
+            lead_result = lead_graph.graph.invoke(
+                graph_input,
+                config=graph_config,
+            )
+        else:
+            with patch.object(lead_graph, "DB_PATH", Path(db_path)):
+                lead_result = lead_graph.graph.invoke(
+                    graph_input,
+                    config=graph_config,
+                )
+
+        result["lead"] = lead_result
+
+    return result
