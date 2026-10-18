@@ -1,0 +1,76 @@
+﻿import unittest
+
+from integration.router import classify_message
+
+
+class TestMessageRouting(unittest.TestCase):
+    def test_known_faq_routes_to_faq(self):
+        self.assertEqual(
+            classify_message("Can I pay from abroad?"),
+            "faq",
+        )
+
+    def test_clear_lead_intent_routes_to_lead(self):
+        self.assertEqual(
+            classify_message(
+                "My name is Ram Sharma. "
+                "I need care for my elderly mother."
+            ),
+            "lead",
+        )
+
+    def test_faq_and_lead_intent_routes_to_both(self):
+        self.assertEqual(
+            classify_message(
+                "Can I pay from abroad? "
+                "My name is Ram Sharma. "
+                "I need care for my mother."
+            ),
+            "both",
+        )
+
+    def test_unsupported_question_still_routes_to_faq_fallback(self):
+        self.assertEqual(
+            classify_message("Do you provide ambulance services?"),
+            "faq",
+        )
+
+    def test_faq_about_extra_visits_is_not_lead_intent(self):
+        self.assertEqual(
+            classify_message("What if my parents need more visits?"),
+            "faq",
+        )
+
+
+    def test_empty_message_defaults_to_faq(self):
+        self.assertEqual(classify_message(""), "faq")
+        self.assertEqual(classify_message("   "), "faq")
+
+    def test_generic_greeting_does_not_start_lead_capture(self):
+        self.assertEqual(classify_message("Hello, how are you?"), "faq")
+
+
+    def test_natural_care_request_routes_to_lead(self):
+    self.assertEqual(
+        classify_message("Could you arrange support for my father?"),
+        "lead",
+    )
+
+    def test_natural_care_request_with_faq_routes_to_both(self):
+    	self.assertEqual(
+        	classify_message(
+            		"What are your fees? Could you arrange support for my father?"
+        ),
+        "both",
+    )	
+
+if __name__ == "__main__":
+    unittest.main()
+
+    def test_empty_message_defaults_to_faq(self):
+        self.assertEqual(classify_message(""), "faq")
+        self.assertEqual(classify_message("   "), "faq")
+
+    def test_generic_greeting_does_not_start_lead_capture(self):
+        self.assertEqual(classify_message("Hello, how are you?"), "faq")
+
