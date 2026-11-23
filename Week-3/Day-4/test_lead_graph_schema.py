@@ -18,12 +18,14 @@ def test_conversation_collects_required_fields():
                 "email": None,
                 "phone": None,
                 "need": None,
+                "when_needed": None,
                 "urgency": None,
                 "source": None,
             },
             {
                 "name": None,
                 "email": "ram@example.com",
+                "when_needed": None,
                 "phone": None,
                 "need": None,
                 "urgency": "Medium",
@@ -34,6 +36,7 @@ def test_conversation_collects_required_fields():
                 "email": None,
                 "phone": None,
                 "need": "Care for elderly mother",
+                "when_needed": "next week",
                 "urgency": None,
                 "source": None,
             },
@@ -42,7 +45,7 @@ def test_conversation_collects_required_fields():
         messages = [
             "My name is Ram Sharma.",
             "My email is ram@example.com.",
-            "I need care for my elderly mother.",
+            "I need care for my elderly mother next week.",
         ]
 
         config = {"configurable": {"thread_id": thread_id}}
@@ -85,6 +88,7 @@ def test_conversation_collects_required_fields():
             assert final_result["email"] == "ram@example.com"
             assert final_result["phone"] is None
             assert final_result["need"] == "Care for elderly mother"
+            assert final_result["when_needed"] == "next week"
             assert final_result["next_field"] is None
             assert final_result["lead_complete"] is True
             assert final_result["status"] == "New"
@@ -95,6 +99,7 @@ def test_conversation_collects_required_fields():
             assert saved["name"] == "Ram Sharma"
             assert saved["email"] == "ram@example.com"
             assert saved["need"] == "Care for elderly mother"
+            assert saved["when_needed"] == "next week"
             assert saved["urgency"] == "Medium"
             assert saved["source"] == "Website"
             assert saved["status"] == "New"
@@ -122,6 +127,7 @@ def test_phone_also_completes_contact_requirement():
                     "email": None,
                     "phone": "+977 9800000000",
                     "need": "Care for elderly father",
+                    "when_needed": "next week",
                     "urgency": None,
                     "source": None,
                 },
@@ -131,7 +137,7 @@ def test_phone_also_completes_contact_requirement():
                 {
                     "user_message": (
                         "My name is Anita Sharma. My phone is "
-                        "+977 9800000000. I need care for my father."
+                        "+977 9800000000. I need care for my father next week."
                     )
                 },
                 config={
