@@ -46,3 +46,8 @@ htmlcov/
 # Logs
 *.log
 .venv-*/
+
+# Local SQLite databases (may contain customer information)
+*.db
+*.sqlite
+*.sqlite3
