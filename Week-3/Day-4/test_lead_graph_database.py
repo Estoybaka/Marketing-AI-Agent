@@ -29,6 +29,7 @@ def fake_extract_information(message: str) -> dict:
         "email": None,
         "phone": None,
         "need": None,
+        "when_needed": None,
         "need_is_correction": False,
         "need_is_vague": False,
         "urgency": None,
@@ -59,6 +60,11 @@ def fake_extract_information(message: str) -> dict:
         result["phone"] = phone_match.group(0).strip()
 
     lowered_message = message.lower()
+    
+    if "next week" in lowered_message:
+        result["when_needed"] = "next week"
+    elif "tomorrow" in lowered_message:
+        result["when_needed"] = "tomorrow"
 
     vague_phrases = (
         "some help for my mom",
@@ -110,6 +116,7 @@ def invoke_graph(
         "email": None,
         "phone": None,
         "need": None,
+        "when_needed": None,
         "urgency": None,
         "source": None,
         "status": None,
@@ -163,7 +170,7 @@ def test_complete_lead_is_saved(tmp_path):
         "integration-complete-1",
         (
             "My name is Ram Sharma. My email is ram@example.com. "
-            "I need care for my elderly mother."
+            "I need care for my elderly mother next week."
         ),
         db_path,
     )
@@ -174,6 +181,7 @@ def test_complete_lead_is_saved(tmp_path):
     assert saved["name"] == "Ram Sharma"
     assert saved["email"] == "ram@example.com"
     assert saved["need"] is not None
+    assert saved["when_needed"] == "next week"
     assert saved["lead_complete"] is True
     assert saved["next_field"] is None
     assert saved["lead_id"]
@@ -189,7 +197,7 @@ def test_corrected_email_is_saved(tmp_path):
         thread_id,
         (
             "My name is Anita Sharma. My email is "
-            "wrong@example.com. I need care for my father."
+            "wrong@example.com. I need care for my father next week."
         ),
         db_path,
     )
@@ -206,6 +214,7 @@ def test_corrected_email_is_saved(tmp_path):
     assert saved["email"] == "anita@example.com"
     assert saved["name"] == "Anita Sharma"
     assert saved["need"] is not None
+    assert saved["when_needed"] == "next week"
     assert saved["lead_complete"] is True
 
 
@@ -296,6 +305,7 @@ def test_update_lead_preserves_additional_care_needs():
         "phone": None,
         "need": "Care for elderly mother",
         "urgency": None,
+        "when_needed": None,
         "source": None,
     }
 
@@ -323,6 +333,7 @@ def test_update_lead_replaces_care_need_when_explicitly_corrected():
         "email": "ram@example.com",
         "phone": None,
         "need": "Overnight care for elderly mother",
+        "when_needed": "next week",
         "urgency": None,
         "source": None,
     }
