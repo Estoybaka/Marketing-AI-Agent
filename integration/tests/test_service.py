@@ -29,6 +29,11 @@ def fake_extract_information(message):
             if "care for" in lowered and "father" in lowered
             else None
         ),
+        "when_needed": (
+            "next week"
+            if "next week" in lowered
+            else None
+        ),
         "urgency": None,
         "source": None,
     }
@@ -61,7 +66,7 @@ def test_lead_message_uses_graph_and_temporary_database(
 
     result = handle_message(
         "My name is Ram Sharma. My email is ram@example.com. "
-        "I need care for my elderly mother.",
+        "I need care for my elderly mother next week.",
         thread_id="lead-integration-test",
         db_path=database_path,
     )
@@ -88,7 +93,7 @@ def test_mixed_message_calls_faq_and_lead_agents(
     result = handle_message(
         "Can I pay from abroad? My name is Ram Sharma. "
         "My email is ram@example.com. "
-        "I need care for my elderly mother.",
+        "I need care for my elderly mother next week.",
         thread_id="mixed-integration-test",
         db_path=tmp_path / "mixed_leads.db",
     )
@@ -171,7 +176,7 @@ def test_lead_persists_across_messages(tmp_path, monkeypatch):
 
     second_result = handle_message(
         "My email is ram@example.com. "
-        "I need care for my elderly mother.",
+        "I need care for my elderly mother next week.",
         thread_id=thread_id,
         db_path=database_path,
     )
@@ -235,14 +240,14 @@ def test_two_threads_keep_lead_details_separate(
 
     ram_result = handle_message(
         "My name is Ram Sharma. My email is ram@example.com. "
-        "I need care for my elderly mother.",
+        "I need care for my elderly mother next week.",
         thread_id="separation-ram",
         db_path=database_path,
     )
 
     sita_result = handle_message(
         "My name is Sita Karki. My email is sita@example.com. "
-        "I need care for my elderly father.",
+        "I need care for my elderly father next week.",
         thread_id="separation-sita",
         db_path=database_path,
     )
@@ -250,10 +255,12 @@ def test_two_threads_keep_lead_details_separate(
     assert ram_result["lead"]["name"] == "Ram Sharma"
     assert ram_result["lead"]["email"] == "ram@example.com"
     assert ram_result["lead"]["need"] == "Care for elderly mother"
+    assert ram_result["lead"]["when_needed"] == "next week"
 
     assert sita_result["lead"]["name"] == "Sita Karki"
     assert sita_result["lead"]["email"] == "sita@example.com"
     assert sita_result["lead"]["need"] == "Care for elderly father"
+    assert sita_result["lead"]["when_needed"] == "next week"
 
     assert ram_result["lead"]["lead_id"] != sita_result["lead"]["lead_id"]
 
@@ -339,3 +346,171 @@ def test_service_reports_missing_scheduling_details(
     assert "requested_date" in preparation["missing_fields"]
     assert "requested_time" in preparation["missing_fields"]
     assert preparation["request"] is None
+    
+    
+def test_service_routes_consent_agreement_to_lead_agent(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        service.lead_graph,
+        "extract_information",
+        fake_extract_information,
+    )
+
+    database_path = tmp_path / "consent_agreement.db"
+    thread_id = "consent-agreement-integration-test"
+
+    service.lead_graph.save_lead(
+        thread_id,
+        {
+            "name": "Ram Sharma",
+            "email": "ram@example.com",
+            "need": "Care for elderly mother",
+            "when_needed": "next week",
+            "contact_consent_asked": True,
+        },
+        database_path,
+    )
+
+    result = handle_message(
+        "Yes, please.",
+        thread_id=thread_id,
+        db_path=database_path,
+    )
+
+    saved_lead = service.lead_graph.get_lead(
+        thread_id,
+        db_path=database_path,
+    )
+
+    assert result["route"] == "lead"
+    assert result["faq"] is None
+    assert result["lead"]["contact_consent"] is True
+    assert saved_lead["contact_consent"] is True        
+
+def test_service_routes_consent_decline_to_lead_agent(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        service.lead_graph,
+        "extract_information",
+        fake_extract_information,
+    )
+
+    database_path = tmp_path / "consent_decline.db"
+    thread_id = "consent-decline-integration-test"
+
+    service.lead_graph.save_lead(
+        thread_id,
+        {
+            "name": "Ram Sharma",
+            "email": "ram@example.com",
+            "need": "Care for elderly mother",
+            "when_needed": "next week",
+            "contact_consent_asked": True,
+        },
+        database_path,
+    )
+
+    result = handle_message(
+        "No, thank you.",
+        thread_id=thread_id,
+        db_path=database_path,
+    )
+
+    saved_lead = service.lead_graph.get_lead(
+        thread_id,
+        db_path=database_path,
+    )
+
+    assert result["route"] == "lead"
+    assert result["lead"]["contact_consent"] is False
+    assert saved_lead["contact_consent"] is False
+    
+def test_service_routes_consent_revocation_to_lead_agent(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        service.lead_graph,
+        "extract_information",
+        fake_extract_information,
+    )
+
+    database_path = tmp_path / "consent_revocation.db"
+    thread_id = "consent-revocation-integration-test"
+
+    service.lead_graph.save_lead(
+        thread_id,
+        {
+            "name": "Ram Sharma",
+            "email": "ram@example.com",
+            "need": "Care for elderly mother",
+            "when_needed": "next week",
+            "contact_consent": True,
+            "contact_consent_asked": True,
+        },
+        database_path,
+    )
+
+    result = handle_message(
+        "No, please don't contact me.",
+        thread_id=thread_id,
+        db_path=database_path,
+    )
+
+    saved_lead = service.lead_graph.get_lead(
+        thread_id,
+        db_path=database_path,
+    )
+
+    assert result["route"] == "lead"
+    assert result["lead"]["contact_consent"] is False
+    assert saved_lead["contact_consent"] is False    
+    
+
+def test_service_does_not_grant_consent_for_ambiguous_answer(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "consent_ambiguous.db"
+    thread_id = "consent-ambiguous-integration-test"
+
+    service.lead_graph.save_lead(
+        thread_id,
+        {
+            "name": "Ram Sharma",
+            "email": "ram@example.com",
+            "need": "Care for elderly mother",
+            "when_needed": "next week",
+            "contact_consent_asked": True,
+        },
+        database_path,
+    )
+
+    monkeypatch.setattr(
+        service.lead_graph,
+        "extract_information",
+        fake_extract_information,
+    )
+
+    result = handle_message(
+        "Maybe later.",
+        thread_id=thread_id,
+        db_path=database_path,
+    )
+
+    saved_lead = service.lead_graph.get_lead(
+        thread_id,
+        db_path=database_path,
+    )
+
+    assert result["route"] == "both"
+    assert result["faq"] is not None
+    assert result["lead"] is not None
+    assert "Please reply yes or no" in result["lead"]["response"]
+    assert saved_lead["contact_consent"] is None
+    assert saved_lead["contact_consent_asked"] is True
+    
