@@ -25,6 +25,7 @@ def main():
             "lead_id",
             "thread_id",
             "name",
+            "when_needed",
             "email",
             "phone",
             "need",
@@ -48,9 +49,11 @@ def main():
                 "email": "anita@example.com",
                 "phone": None,
                 "need": "Care for elderly father",
+                "when_needed": "next week",
                 "urgency": "Medium",
                 "source": "Website",
                 "status": "New",
+                "when_needed": "next week",
             },
             test_db,
         )
@@ -62,6 +65,7 @@ def main():
         assert lead["email"] == "anita@example.com"
         assert lead["phone"] is None
         assert lead["need"] == "Care for elderly father"
+        assert lead["when_needed"] == "next week"
         assert lead["urgency"] == "Medium"
         assert lead["source"] == "Website"
         assert lead["status"] == "New"
@@ -77,6 +81,7 @@ def main():
                 "email": None,
                 "phone": None,
                 "need": "Care for grandfather",
+                "when_needed": None,
             },
             test_db,
         )
@@ -85,6 +90,7 @@ def main():
 
         assert incomplete["lead_complete"] is False
         assert incomplete["next_field"] == "email_or_phone"
+        assert incomplete["when_needed"] is None
         print("PASS: Missing contact is detected correctly.")
 
         try:
