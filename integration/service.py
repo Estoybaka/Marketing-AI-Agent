@@ -1,5 +1,6 @@
 ﻿"""Route customer messages through the Week 1, Week 2, and Week 3 components."""
 
+from email.mime import message
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -47,7 +48,44 @@ def handle_message(
         raise ValueError("A non-empty thread_id is required.")
 
     route = classify_message(message)
+    
+    # Recognize consent responses in an existing conversation.
+    # Only check when normal routing would send the message to the FAQ agent.
+    database_path = (
+        Path(db_path) if db_path is not None else lead_graph.DB_PATH
+    )
 
+    if route == "faq" and database_path.exists():
+        existing_lead = lead_graph.get_lead(
+            thread_id,
+            db_path=database_path,
+        )
+
+        if (
+            existing_lead is not None
+            and existing_lead["contact_consent_asked"]
+        ):
+            consent_response = lead_graph.parse_contact_consent(
+                message
+            )
+            current_consent = existing_lead["contact_consent"]
+
+            # Process a new consent decision or a change of consent.
+            if (
+                consent_response is not None
+                and (
+                    current_consent is None
+                    or consent_response != current_consent
+                )
+            ):
+                route = "lead"
+                
+            elif (
+                current_consent is None
+                and consent_response is None
+            ):
+                route = "both"
+                
     result = {
         "route": route,
         "faq": None,
