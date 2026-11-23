@@ -93,9 +93,9 @@ Command:
 python -m pytest -v
 ```
 
-Latest recorded result:
+Latest verified result:
 
-**114 tests passed.**
+**161 tests passed.**
 
 I also checked dependency consistency.
 
@@ -145,7 +145,7 @@ Run the complete test suite:
 python -m pytest -v
 ```
 
-The latest recorded result was 114 passing tests. Run the command again to verify the current working tree.
+The latest verified full repository test suite result is 161 passing tests. Run the command again to verify the current working tree.
 
 ### Run the integration service tests
 
@@ -153,7 +153,7 @@ The latest recorded result was 114 passing tests. Run the command again to verif
 python -m pytest .\integration\tests\test_service.py .\integration\tests\test_scheduling_contract.py -v
 ```
 
-The previously recorded result for this focused test run was 19 passing tests. The result may change if the tests have subsequently been modified.
+These commands are provided as focused verification options. Run them to obtain fresh results; no current result is claimed here.
 
 ### Run the Week 3 lead graph database tests
 
@@ -161,11 +161,11 @@ The previously recorded result for this focused test run was 19 passing tests. T
 python -m pytest .\Week-3\Day-4\test_lead_graph_database.py -v
 ```
 
-The previously recorded result was 8 passing tests.
+Run this focused test command to obtain a fresh result. No current result is claimed here.
 
 ## 4. How to Test the Agent With Customer Conversations
 
-The Week 4 task requires testing the agent with 8–10 realistic customer conversations, including easy cases and challenging cases.
+The Week 4 task requires testing the agent with 20 automated customer conversations scenarios.
 
 The following scenarios can be used for manual testing.
 
@@ -385,7 +385,9 @@ Do not mark a scenario as passed merely because the program did not crash. Verif
 
 ## 6. Manual Test Results Template
 
-Record the actual outcome of each conversation.
+The 20 customer conversation scenarios are covered by automated integration tests in integration/tests/test_customer_scenarios.py. These tests verify routing, lead processing, persistence, consent handling, and scheduling-preparation behavior using a deterministic test extractor. They do not establish the accuracy of live Gemini extraction or constitute 20 manually conducted conversations.
+
+The table below is retained as a template for future manual testing. Its results should only be marked as passed after each conversation has actually been run and verified.
 
 | Test | Scenario | Expected behavior | Actual result | Status |
 |---|---|---|---|---|
@@ -409,7 +411,7 @@ The following items are outside the demonstrated scope of the current integratio
 - Connecting the actual external Scheduling Agent.
 - Checking real-time appointment availability.
 - Completing and verifying an actual appointment booking.
-- Automatically extracting and persisting requested appointment dates and times through the scheduling-preparation step.
+- Automatically normalizing the customer's natural-language timing phrase (when_needed) into a structured appointment date and time. The scheduling handoff contract accepts structured date and time values when supplied, but actual Scheduling Agent integration remains pending.
 - Testing all possible customer messages and production-level concurrency behavior.
 
 These limitations should be documented accurately. They do not automatically mean that the stated Week 4 conversation-testing task is incomplete.
@@ -422,9 +424,13 @@ Based on the current implementation and recorded test results:
 - The existing FAQ and lead workflows are connected through the integration service.
 - Routing, lead validation, persistence, and conversation isolation have automated test coverage.
 - Scheduling-readiness and handoff preparation have been implemented.
-- The latest recorded full test suite result is 114 passing tests.
+- The latest verified full repository test suite result is 161 passing tests.
 - Dependency consistency was checked successfully.
+- Explicit contact consent is tracked separately from missing or unanswered consent.
+- Customers can decline or revoke consent, and ambiguous answers do not count as agreement.
+- Follow-up drafts are prepared only when explicit consent is present; the system does not independently send messages.
+- Twenty automated customer scenarios cover FAQ handling, lead capture, routing, consent, and scheduling-preparation behavior.
 
-The Week 4 task appears complete for the integration prototype and testing scope described in the project requirements, provided the required customer conversation scenarios were actually exercised and their behavior verified.
+The Week 4 integration prototype and automated testing scope have been completed based on the current implementation and verified test results. The 20 automated customer scenarios passed. The manual testing table remains available for future manual verification.
 
 **Final distinction:** The tested integration prototype is not the same as a fully deployed system with a connected Scheduling Agent and confirmed real-world bookings.
