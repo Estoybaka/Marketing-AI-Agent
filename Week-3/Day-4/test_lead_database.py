@@ -40,6 +40,7 @@ def test_new_lead_can_be_saved_and_retrieved(tmp_path):
             "name": "Ram Sharma",
             "email": "ram@example.com",
             "need": "Care for elderly mother",
+            "when_needed": "next week",
             "urgency": "Medium",
             "source": "Website",
         },
@@ -61,6 +62,7 @@ def test_new_lead_can_be_saved_and_retrieved(tmp_path):
     assert lead["lead_id"]
     assert lead["created_at"]
     assert lead["updated_at"]
+    assert lead["when_needed"] == "next week"
 
 
 def test_missing_values_do_not_erase_saved_information(tmp_path):
@@ -72,6 +74,7 @@ def test_missing_values_do_not_erase_saved_information(tmp_path):
         {
             "name": "Ram Sharma",
             "email": "ram@example.com",
+            "when_needed": "Within a month",
             "need": "Care for elderly mother",
         },
         db_path,
@@ -93,6 +96,7 @@ def test_missing_values_do_not_erase_saved_information(tmp_path):
     assert lead["name"] == "Ram Sharma"
     assert lead["email"] == "ram@example.com"
     assert lead["need"] == "Care for elderly mother"
+    assert lead["when_needed"] == "Within a month"
     assert lead["lead_complete"] is True
 
 
@@ -106,6 +110,7 @@ def test_existing_email_can_be_corrected(tmp_path):
             "name": "Ram Sharma",
             "email": "old@example.com",
             "need": "Care for elderly mother",
+            "when_needed": "Next month",
         },
         db_path,
     )
@@ -133,6 +138,7 @@ def test_phone_can_satisfy_contact_requirement(tmp_path):
             "name": "Anita Sharma",
             "phone": "+977 9800000000",
             "need": "Care for elderly father",
+            "when_needed": "As soon as possible",
         },
         db_path,
     )
@@ -155,6 +161,7 @@ def test_missing_contact_keeps_lead_incomplete(tmp_path):
         {
             "name": "Ram Sharma",
             "need": "Care for elderly mother",
+            "when_needed": "next week",
         },
         db_path,
     )
