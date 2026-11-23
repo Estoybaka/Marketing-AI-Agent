@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -52,6 +53,13 @@ class LeadExtraction(BaseModel):
         description=(
             "The care requirement expressed by the customer. "
             "Do not record a vague request as a specific service."
+        ),
+    )
+    when_needed: Optional[str] = Field(
+        default=None,
+        description=(
+            "When the customer needs the care service, using "
+            "their explicitly stated timing. Do not invent dates."
         ),
     )
     need_is_vague: bool = Field(
@@ -112,10 +120,14 @@ class LeadState(TypedDict, total=False):
     email: Optional[str]
     phone: Optional[str]
     need: Optional[str]
+    when_needed: Optional[str]
     urgency: Optional[str]
     source: Optional[str]
     status: Optional[str]
     lead_id: Optional[str]
+
+    contact_consent: Optional[bool]
+    contact_consent_asked: bool
 
     user_message: str
     next_field: Optional[str]
@@ -146,6 +158,7 @@ Fields:
 - email: the customer's email address.
 - phone: the customer's phone number.
 - need: a care requirement specific enough to understand.
+- when_needed: when the customer needs the service, only if explicitly stated.
 - need_is_vague: true when the customer asks for general help but
   does not specify the type of care needed.
 - need_is_correction: true only when the customer explicitly corrects
@@ -183,6 +196,10 @@ Rules:
   care requirement.
 - If need_is_correction is true, extract the corrected care need only,
   not the old need.
+- Capture timing exactly as expressed by the customer.
+- Examples: "next week", "as soon as possible", "within a month".
+- Do not calculate, assume, or invent a date or deadline.
+- Return null when the customer has not stated when they need the service.  
 
 Customer message:
 <customer_message>
@@ -203,6 +220,7 @@ EXTRACTABLE_FIELDS = (
     "email",
     "phone",
     "need",
+    "when_needed",
     "urgency",
     "source",
 )
@@ -259,7 +277,71 @@ QUESTIONS = {
     "name": "Sure. May I have your name?",
     "email_or_phone": "What is your phone number or email address?",
     "need": "What kind of care service do you need?",
+    "when_needed": "When do you need the care service?",
 }
+
+# --------------------------------------------------
+# 8. Recognize explicit contact consent
+# --------------------------------------------------
+
+import re
+
+
+def parse_contact_consent(message: str) -> Optional[bool]:
+    """
+    Recognize clear yes/no answers to a contact-permission question.
+
+    True  = customer agrees.
+    False = customer declines.
+    None  = unclear answer.
+    """
+    normalized = re.sub(
+        r"[.!?,;]+",
+        "",
+        message.lower().strip(),
+    )
+
+    normalized = re.sub(r"\s+", " ", normalized)
+
+    affirmative_answers = {
+        "yes",
+        "yes please",
+        "yes you can",
+        "i agree",
+        "i consent",
+        "i give consent",
+        "you can contact me",
+        "you may contact me",
+        "that's fine",
+        "that is fine",
+        "sure",
+        "okay",
+        "ok",
+    }
+
+    negative_answers = {
+        "no",
+        "no thanks",
+        "no thank you",
+        "i do not agree",
+        "i don't agree",
+        "i do not consent",
+        "i don't consent",
+        "do not contact me",
+        "don't contact me",
+        "please do not contact me",
+        "please don't contact me",
+        "no please don't contact me",
+        "no please do not contact me",
+    }
+
+    if normalized in affirmative_answers:
+        return True
+
+    if normalized in negative_answers:
+        return False
+
+    return None
 
 
 # --------------------------------------------------
@@ -289,31 +371,38 @@ def check_missing_fields(
                 "email",
                 "phone",
                 "need",
+                "when_needed",
                 "urgency",
                 "source",
                 "status",
                 "lead_id",
             )
         }
+
+        lead["contact_consent"] = saved_lead.get("contact_consent")
+        lead["contact_consent_asked"] = saved_lead.get(
+            "contact_consent_asked", False
+        )
     else:
         lead = {
             "name": None,
             "email": None,
             "phone": None,
             "need": None,
+            "when_needed": None,
             "urgency": None,
             "source": None,
             "status": "New",
             "lead_id": None,
+            "contact_consent": None,
+            "contact_consent_asked": False,
         }
 
     old_lead = lead.copy()
 
-    # Extract information from the current message.
+    # Extract ordinary lead information.
     extracted = extract_information(state["user_message"])
 
-    # A vague request must trigger clarification. Do not save it as
-    # a specific need or overwrite an existing care requirement.
     needs_clarification = extracted.get("need_is_vague") is True
 
     if needs_clarification:
@@ -330,30 +419,73 @@ def check_missing_fields(
     next_field = find_next_field(lead)
     lead_complete = calculate_completion(lead)
 
-    # Save after every message, including incomplete leads.
+    consent_answer = None
+
+    # Interpret yes/no only after the consent question was asked.
+    if (
+        lead_complete
+        and old_lead.get("contact_consent_asked") is True
+    ):
+        consent_answer = parse_contact_consent(state["user_message"])
+
+        if consent_answer is not None:
+            lead["contact_consent"] = consent_answer
+            changed_fields.append("contact_consent")
+
+    # Ask for consent only after required lead details are complete.
+    if (
+        lead_complete
+        and lead.get("contact_consent") is None
+        and not lead.get("contact_consent_asked")
+    ):
+        lead["contact_consent_asked"] = True
+
+    # Save after every message.
     save_lead(thread_id, lead, DB_PATH)
 
-    # Read back the saved row to expose the generated lead_id.
+    # Read the saved row to expose the generated lead ID.
     saved_after_update = get_lead(thread_id, DB_PATH)
 
     if saved_after_update is not None:
         lead["lead_id"] = saved_after_update["lead_id"]
         lead["status"] = saved_after_update["status"]
 
-    previously_complete = calculate_completion(old_lead)
-
+    # Prepare the response.
     if needs_clarification:
         response = (
             "Of course. What kind of care or help do you need? "
             "For example, personal care, help with daily activities, "
             "meal preparation, or companionship."
         )
+
     elif next_field is not None:
         response = QUESTIONS[next_field]
-    elif changed_fields and previously_complete:
+
+    elif lead.get("contact_consent") is True:
+        response = (
+            "Thank you. You have agreed to be contacted using "
+            "the contact details you provided."
+        )
+
+    elif lead.get("contact_consent") is False:
+        response = (
+            "Thank you for letting me know. I will not arrange "
+            "follow-up contact using your details."
+        )
+
+    elif lead.get("contact_consent_asked") is True:
+        response = (
+            "May we contact you using the phone number or email "
+            "address you provided to discuss the next steps? "
+            "Please reply yes or no."
+        )
+
+    elif changed_fields and calculate_completion(old_lead):
         response = "Thank you. I have updated your information."
+
     elif changed_fields:
         response = "Thank you. I have recorded your information."
+
     else:
         response = (
             "Thank you. I still have your information recorded. "
