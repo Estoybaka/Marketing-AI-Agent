@@ -10,7 +10,12 @@ from copy import deepcopy
 from typing import Optional
 
 
-REQUIRED_FIELDS = ["name", "contact", "need"]
+REQUIRED_FIELDS = [
+    "name",
+    "contact",
+    "need",
+    "when_needed",
+]
 
 
 def update_lead(lead: dict, extracted: dict) -> None:
@@ -56,7 +61,8 @@ def process_customer_message(
     questions = {
         "name": "Sure. May I have your name?",
         "contact": "What is your phone number or email?",
-        "need": "What kind of care service do you need?"
+        "need": "What kind of care service do you need?",
+        "when_needed": "When do you need the care service?",
     }
 
     if not lead_complete:
@@ -90,7 +96,8 @@ def test_add_information_after_completion():
     lead = {
         "name": "Anita Sharma",
         "contact": "anita@example.com",
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": "next week"
     }
 
     result = process_customer_message(
@@ -121,7 +128,8 @@ def test_no_information_change():
     lead = {
         "name": "Anita Sharma",
         "contact": "anita@example.com",
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": "next week",
     }
 
     original_lead = deepcopy(lead)
@@ -131,7 +139,8 @@ def test_no_information_change():
         {
             "name": None,
             "contact": None,
-            "need": None
+            "need": None,
+            "when_needed": None
         }
     )
 
@@ -151,7 +160,8 @@ def test_correct_existing_contact():
     lead = {
         "name": "Anita Sharma",
         "contact": "wrong@example.com",
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": "next week"
     }
 
     result = process_customer_message(
@@ -179,7 +189,8 @@ def test_incomplete_lead_stays_incomplete():
     lead = {
         "name": "Anita Sharma",
         "contact": None,
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": "next week"
     }
 
     result = process_customer_message(
@@ -187,7 +198,8 @@ def test_incomplete_lead_stays_incomplete():
         {
             "name": None,
             "contact": None,
-            "need": None
+            "need": None,
+            "when_needed": None
         }
     )
 
