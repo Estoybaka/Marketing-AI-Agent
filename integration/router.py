@@ -81,6 +81,10 @@ LEAD_CUES = (
     "caregiver tomorrow",
     "arrive tomorrow",
     "available tomorrow",
+    "correction:",
+    "instead of",
+    "also needs",
+    "also need",
 )
 
 
