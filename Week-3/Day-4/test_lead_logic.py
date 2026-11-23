@@ -16,7 +16,7 @@ from typing import Optional
 def update_lead(lead: dict, extracted: dict) -> None:
     """Update supplied fields without erasing missing values."""
 
-    for field in ["name", "contact", "need"]:
+    for field in ["name", "contact", "need", "when_needed"]:
         new_value = extracted.get(field)
 
         if new_value is not None and str(new_value).strip():
@@ -39,6 +39,9 @@ def find_next_field(lead: dict) -> Optional[str]:
     if not lead.get("need"):
         return "need"
 
+    if not lead.get("when_needed"):
+        return "when_needed"
+
     return None
 
 
@@ -58,7 +61,8 @@ def test_information_is_merged():
     lead = {
         "name": None,
         "contact": "anita@example.com",
-        "need": None
+        "need": None,
+        "when_needed": None
     }
 
     update_lead(
@@ -66,14 +70,15 @@ def test_information_is_merged():
         {
             "name": "Anita Sharma",
             "contact": None,
-            "need": "Care for her elderly father"
+            "need": "Care for her elderly father",
+            "when_needed": "next week"
         }
     )
 
     assert lead["name"] == "Anita Sharma"
     assert lead["contact"] == "anita@example.com"
     assert lead["need"] == "Care for her elderly father"
-
+    assert lead["when_needed"] == "next week"
     print("PASS: Existing information is preserved.")
 
 
@@ -81,12 +86,17 @@ def test_missing_fields_are_detected():
     lead = {
         "name": None,
         "contact": "anita@example.com",
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": None
     }
 
     assert find_next_field(lead) == "name"
 
     lead["name"] = "Anita Sharma"
+
+    assert find_next_field(lead) == "when_needed"
+
+    lead["when_needed"] = "next week"
 
     assert find_next_field(lead) is None
 
@@ -97,7 +107,8 @@ def test_empty_values_do_not_erase_information():
     lead = {
         "name": "Anita Sharma",
         "contact": "anita@example.com",
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": "next week"
     }
 
     update_lead(
@@ -105,13 +116,15 @@ def test_empty_values_do_not_erase_information():
         {
             "name": None,
             "contact": " ",
-            "need": None
+            "need": None,
+            "when_needed": None
         }
     )
 
     assert lead["name"] == "Anita Sharma"
     assert lead["contact"] == "anita@example.com"
     assert lead["need"] == "Care for her elderly father"
+    assert lead["when_needed"] == "next week"
 
     print("PASS: Empty values do not erase saved information.")
 
@@ -120,7 +133,8 @@ def test_incomplete_lead_is_not_complete():
     lead = {
         "name": "Anita Sharma",
         "contact": None,
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": None
     }
 
     assert is_lead_complete(lead) is False
@@ -133,7 +147,8 @@ def test_complete_lead_is_recognized():
     lead = {
         "name": "Anita Sharma",
         "contact": "anita@example.com",
-        "need": "Care for her elderly father"
+        "need": "Care for her elderly father",
+        "when_needed": "next week"
     }
 
     assert is_lead_complete(lead) is True
